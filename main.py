@@ -7,17 +7,12 @@ from PyQt5.QtWidgets import QWidget, QTableWidgetItem
 from main_window import Ui_Form
 from addEditCoffeeForm import Ui_addCoffee
 
-con = sqlite3.connect('data/coffee.sqlite')
-str_list = []
-is_edd: bool = True
-
 
 class DBCoffee(QWidget, Ui_Form):
-    global con
-
     def __init__(self):
         super(DBCoffee, self).__init__()
         self.setupUi(self)
+        self.con = sqlite3.connect('data/coffee.sqlite')
         self.open_db()
         self.tableWidget.clicked.connect(self.list_str)
         self.addButton.clicked.connect(self.add)
@@ -39,7 +34,7 @@ class DBCoffee(QWidget, Ui_Form):
                     LEFT JOIN type_coffee ON coffee_specifications.id_type_coffee = type_coffee.id
                     ORDER BY coffee_specifications.ID
                 """
-        rez = con.cursor().execute(query).fetchall()
+        rez = self.con.cursor().execute(query).fetchall()
         self.tableWidget.setColumnCount(len(rez[0]))
         self.tableWidget.setRowCount(len(rez))
         self.tableWidget.setHorizontalHeaderLabels(["ID", 'Название', 'Степень обжарки', 'Молотый', 'Описание',
@@ -53,42 +48,41 @@ class DBCoffee(QWidget, Ui_Form):
     def closeEvent(self, event):
         # При закрытии формы закроем и наше соединение
         # с базой данных
-        con.close()
+        self.con.close()
 
     def list_str(self):
         # получаем список из текущей строки
-        global str_list
+
         str_list = []
         for i in range(self.tableWidget.columnCount()):
             item = self.tableWidget.item(self.tableWidget.currentRow(), i)
             l = item.text()
             str_list.append(l)
+        return str_list
 
     def add(self):
         # добавление новой строки
-        global is_edd
-        is_edd = True
         self.wnd_add = AddEditForm()
         self.wnd_add.show()
         self.open_db()
 
     def edit(self):
         # редактирование выделенной строки
-        global is_edd
-        is_edd = False
-        self.wnd_add = AddEditForm()
+        self.wnd_add = AddEditForm(self.list_str())
         self.wnd_add.show()
         self.open_db()
 
 
 class AddEditForm(QWidget, Ui_addCoffee):
-    def __init__(self):
+    def __init__(self, str1=None):
         super(AddEditForm, self).__init__()
         self.setupUi(self)
         self.lineEdit_ID.setEnabled(False)
         self.params = {}
         self.params_type = {}
-        self.con1 = con
+        self.str_list = str1
+        self.is_edit = False
+        self.con1 = sqlite3.connect('data/coffee.sqlite')
         self.open_wnd()
         self.okButton.clicked.connect(self.run)
 
@@ -107,26 +101,25 @@ class AddEditForm(QWidget, Ui_addCoffee):
         self.comboBox_type.addItems(list(self.params_type.keys()))
 
     def open_wnd(self):
-        global str_list, is_edd
         self.select_degree()
         self.select_type()
 
-        if not is_edd:
-            if str_list:
-                id, name_in, degree_in, type_coffee_in, text_in, price_in, volue_1_in = str_list
-                self.lineEdit_ID.setText(id)
-                self.lineEdit_name.setText(name_in)
-                self.textEdit.insertPlainText(text_in)
-                self.lineEdit_price.setText(price_in)
-                self.lineEdit_volue.setText(volue_1_in)
+        if self.str_list:
+            self.is_edit = False
+            id, name_in, degree_in, type_coffee_in, text_in, price_in, volue_1_in = self.str_list
+            self.lineEdit_ID.setText(id)
+            self.lineEdit_name.setText(name_in)
+            self.textEdit.insertPlainText(text_in)
+            self.lineEdit_price.setText(price_in)
+            self.lineEdit_volue.setText(volue_1_in)
         else:
+            self.is_edit = True
             self.lineEdit_name.clear()
             self.textEdit.clear()
             self.lineEdit_price.clear()
             self.lineEdit_volue.clear()
 
     def run(self):
-        global is_edd, str_list
 
         name = self.lineEdit_name.text()
         degree = self.comboBox.currentText()
@@ -141,13 +134,13 @@ class AddEditForm(QWidget, Ui_addCoffee):
             if volue == type_coffee:
                 id_type_coffee = key
 
-        if is_edd:
+        if self.is_edd:
 
             req = f"INSERT INTO coffee_specifications(name, id_degree, id_type_coffee, description, " \
                   f"price, packing_volume) " \
                   f"VALUES ('{name}', '{id_degree}', '{id_type_coffee}', '{text}', '{price}', '{volue_t}')"
         else:
-            id_curr = str_list[0]
+            id_curr = self.str_list[0]
             req = f"UPDATE coffee_specifications " \
                   f"SET name = '{name}', id_degree = '{id_degree}', id_type_coffee = '{id_type_coffee}', " \
                   f"description = '{text}', price = '{price}', packing_volume = '{volue_t}'" \
