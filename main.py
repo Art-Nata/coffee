@@ -134,7 +134,7 @@ class AddEditForm(QWidget, Ui_addCoffee):
             if volue == type_coffee:
                 id_type_coffee = key
 
-        if self.is_edd:
+        if self.is_edit:
 
             req = f"INSERT INTO coffee_specifications(name, id_degree, id_type_coffee, description, " \
                   f"price, packing_volume) " \
@@ -149,6 +149,7 @@ class AddEditForm(QWidget, Ui_addCoffee):
         cur = self.con1.cursor()
         cur.execute(req)
         self.con1.commit()
+        wnd.open_db()
         self.close()
 
 
